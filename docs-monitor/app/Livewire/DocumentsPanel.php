@@ -21,6 +21,8 @@ class DocumentsPanel extends Component
 
     public function render()
     {
-        return view('livewire.documents-panel');
+        return view('livewire.documents-panel')
+            ->layout('components.layouts.app')
+            ->title('Docs Monitor');
     }
 }

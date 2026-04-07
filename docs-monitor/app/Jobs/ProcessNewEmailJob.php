@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Models\Document;
 use DirectoryTree\ImapEngine\Mailbox;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -10,7 +11,6 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 class ProcessNewEmailJob implements ShouldQueue
 {
@@ -53,6 +53,14 @@ class ProcessNewEmailJob implements ShouldQueue
 
             $this->log("🔗 Link Drive encontrado: " . $url);
 
+            $existingDocument = Document::where('original_url', $url)->first();
+
+            if ($existingDocument) {
+                $this->log("ℹ️ Documento já registrado no banco para esta URL. Ignorando duplicata.");
+                $message->markSeen();
+                return;
+            }
+
             // Converte para link direto de download
             $directUrl = $this->convertToDirectDownload($url);
 
@@ -76,6 +84,19 @@ class ProcessNewEmailJob implements ShouldQueue
 
             $this->log("✅ PDF baixado com sucesso!");
             $this->log("📁 Salvo como: {$path}");
+
+            $from = $message->from();
+
+            Document::create([
+                'subject' => $subject,
+                'original_url' => $url,
+                'file_path' => $path,
+                'filename' => $filename,
+                'from_email' => $from?->email() ?? '',
+                'received_at' => $message->date() ?? now(),
+            ]);
+
+            $this->log("💾 Documento salvo no banco com sucesso!");
 
             $message->markSeen();
 
